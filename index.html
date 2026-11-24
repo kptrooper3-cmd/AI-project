@@ -1,0 +1,977 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>U.S. Railroad Accident Map</title>
+
+    <!-- Leaflet map styling -->
+    <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+
+<link rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+
+    <!-- Map appearance -->
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        
+header {
+    background: linear-gradient(120deg, #172B46, #294766);
+    color: white;
+    padding: 24px 30px;
+    border-bottom: 4px solid #F5B942;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+header p {
+    color: #CBD5E1;
+    margin: 8px 0 0;
+    font-size: 14px;
+}
+        
+#map {
+    width: calc(100% - 36px);
+    height: 76vh;
+    min-height: 480px;
+    margin: 0 18px 20px;
+    border: 1px solid #CBD5E1;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 3px 12px rgba(23, 43, 70, 0.10);
+}
+
+
+
+/* Statistics dashboard */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    padding: 10px 20px 18px;
+}
+
+.stat-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 3px 10px rgba(23, 43, 70, 0.07);
+    border-left: 4px solid #64748B;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(23, 43, 70, 0.12);
+}
+.stat-card.fatality {
+    border-left-color: #DC2626;
+}
+
+.stat-card.killed {
+    border-left-color: #991B1B;
+}
+
+.stat-card.injury {
+    border-left-color: #D97706;
+}
+
+.stat-label {
+    color: #64748B;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    margin-top: 10px;
+    color: #172B46;
+}
+
+@media (max-width: 800px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+        
+/* Map legend appearance */
+.map-legend {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 12px 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    color: #1F2937;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.8;
+    min-width: 175px;
+}
+
+.map-legend h4 {
+    margin: 0 0 7px;
+    font-size: 15px;
+    color: #172B46;
+}
+
+.legend-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.legend-circle {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    border: 1px solid #333333;
+    flex-shrink: 0;
+}
+
+.legend-line {
+    width: 20px;
+    height: 0;
+    border-top: 3px solid;
+    flex-shrink: 0;
+}
+
+.leaflet-control-layers {
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12) !important;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+.leaflet-control-layers-expanded {
+    padding: 12px 14px;
+}
+
+.leaflet-control-zoom {
+    border-radius: 8px !important;
+    overflow: hidden;
+}
+
+  
+/* Accident year filter */
+.filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 0 24px 16px;
+}
+
+.filter-bar label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.filter-bar select {
+    padding: 10px 14px;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    background: white;
+    color: #172B46;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.filter-bar select:focus {
+    outline: 2px solid #0F766E;
+    outline-offset: 2px;
+}
+
+/* Clustering toggle appearance */
+.cluster-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 13px;
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    color: #172B46;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.cluster-toggle input {
+    accent-color: #0F766E;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+/* State filter toggle appearance */
+.state-filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 12px;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    background: white;
+    color: #172B46;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.state-filter-toggle input {
+    accent-color: #0F766E;
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+/* Allow filters to wrap on smaller screens */
+.filter-bar {
+    flex-wrap: wrap;
+}
+.accident-div-icon {
+    background: transparent;
+    border: none;
+    pointer-events: auto;
+}
+
+.accident-dot {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+}
+
+
+@media (max-width: 600px) {
+    .filter-bar {
+        justify-content: flex-start;
+        padding: 5px 12px 14px;
+    }
+}
+      /* Redesigned map filter toolbar */
+.filter-bar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 0 18px 14px;
+    padding: 14px 18px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+}
+
+/* Dropdown groups */
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 155px;
+}
+
+.filter-group label {
+    color: #64748B;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+}
+
+.filter-group select {
+    width: 100%;
+    height: 40px;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    background: white;
+    color: #172B46;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* Checkbox controls */
+.filter-bar .filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    box-sizing: border-box;
+    padding: 0 12px;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    background: white;
+    color: #172B46;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.filter-toggle input {
+    accent-color: #0F766E;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* Smaller screens */
+@media (max-width: 700px) {
+    .filter-bar {
+        align-items: stretch;
+    }
+
+    .filter-group {
+        flex: 1 1 145px;
+    }
+
+    .filter-bar .filter-toggle {
+        flex: 1 1 200px;
+    }
+}
+    </style>
+</head>
+
+
+<body>
+
+    <!-- Website title -->
+    <header>
+        <h1>U.S. Railroad Safety Explorer</h1>
+<p>Highway-Rail Crossing Accident Analysis | United States</p>
+    </header>
+
+    <!-- Live accident statistics -->
+    <section class="stats-grid">
+
+        <div class="stat-card">
+            <div class="stat-label">Total Accidents</div>
+            <div class="stat-value" id="totalAccidents">Loading...</div>
+        </div>
+
+        <div class="stat-card fatality">
+            <div class="stat-label">Fatality Accidents</div>
+            <div class="stat-value" id="fatalityAccidents">Loading...</div>
+        </div>
+
+        <div class="stat-card killed">
+            <div class="stat-label">Total Fatalities</div>
+            <div class="stat-value" id="totalFatalities">Loading...</div>
+        </div>
+
+        <div class="stat-card injury">
+            <div class="stat-label">Total Injuries</div>
+            <div class="stat-value" id="totalInjuries">Loading...</div>
+        </div>
+
+    </section>
+<!-- Map filters -->
+<div class="filter-bar">
+
+    <div class="filter-group">
+        <label for="yearFilter">Accident Year</label>
+        <select id="yearFilter">
+            <option value="all">All Years</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="stateFilter">State</label>
+        <select id="stateFilter">
+            <option value="">All States</option>
+        </select>
+    </div>
+
+    <label class="filter-toggle cluster-toggle">
+        <input type="checkbox" id="clusterToggle">
+        Group Nearby Accidents
+    </label>
+
+    <label class="filter-toggle state-filter-toggle">
+        <input type="checkbox" id="stateOnlyToggle">
+        Show selected state only
+    </label>
+
+</div>
+
+
+<!-- Single interactive map -->
+<div id="map"></div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        // Create the map and center it on the United States
+        // State filter controls
+const stateSelect = document.getElementById('stateFilter');
+const stateOnlyToggle = document.getElementById('stateOnlyToggle');
+
+// This will connect the state controls to the accident update function
+let refreshAccidentView = null;
+// Update accidents when the selected state changes
+stateSelect.addEventListener('change', function() {
+
+    stateOnlyToggle.checked = stateSelect.value !== '';
+
+    if (refreshAccidentView) {
+        refreshAccidentView();
+    }
+
+});
+
+// Update accidents when the state-only checkbox changes
+stateOnlyToggle.addEventListener('change', function() {
+
+    if (refreshAccidentView) {
+        refreshAccidentView();
+    }
+
+});
+        const map = L.map('map', {
+    preferCanvas: true
+}).setView([39.5, -98.35], 4);
+        // Create the layer control
+const layerControl = L.control.layers(null, {}).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+    // Create map layers in the correct drawing order
+
+map.createPane('statesPane');
+map.getPane('statesPane').style.zIndex = 350;
+
+map.createPane('railPane');
+map.getPane('railPane').style.zIndex = 450;
+
+map.createPane('accidentsPane');
+map.getPane('accidentsPane').style.zIndex = 620;    
+
+// Create the map legend
+const legend = L.control({
+    position: 'bottomright'
+});
+
+legend.onAdd = function(map) {
+
+    const div = L.DomUtil.create('div', 'map-legend');
+
+    div.innerHTML = `
+        <h4>Map Legend</h4>
+
+        <div class="legend-row">
+            <span class="legend-circle"
+                style="background:#D7191C;"></span>
+            Accidents with Fatalities
+        </div>
+
+        <div class="legend-row">
+            <span class="legend-circle"
+                style="background:#F28E2B;"></span>
+            Injury-only Accidents
+        </div>
+
+        <div class="legend-row">
+            <span class="legend-circle"
+                style="background:#377EB8;"></span>
+            No Reported Casualties
+        </div>
+
+        <div class="legend-row">
+            <span class="legend-line"
+             style="border-color:#0F766E;"></span>
+            Railroad Network
+        </div>
+
+        <div class="legend-row">
+            <span class="legend-line"
+    style="border-color:#475569;"></span>
+State Boundaries
+        </div>
+    `;
+
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
+
+    return div;
+};
+
+legend.addTo(map);
+
+
+
+// Load U.S. state boundaries
+fetch('./Data/usStates.geojson')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Could not load state boundaries');
+        }
+        return response.json();
+    })
+    .then(data => {
+      // Get the state dropdown
+
+// Build the list of states from the GeoJSON
+// Build the state dropdown using FIPS identifiers
+const stateOptions = data.features.map(feature => ({
+    code: String(Number(feature.properties.STATE_FIPS)),
+    name: feature.properties.NAME,
+    abbreviation: feature.properties.STATE_ABBR
+})).filter(state => state.code !== 'NaN' && state.name);
+
+// Sort states alphabetically
+stateOptions.sort((a, b) => a.name.localeCompare(b.name));
+
+// Add states to the dropdown
+stateOptions.forEach(state => {
+
+    const option = document.createElement('option');
+
+    option.value = state.code;
+option.textContent = `${state.name} (${state.abbreviation})`;
+
+    stateSelect.appendChild(option);
+
+});
+
+console.log('States added to dropdown:', stateOptions.length);  
+
+        const statesLayer = L.geoJSON(data, {
+            style: {
+                pane: 'statesPane',
+                color: '#475569',
+                weight: 1.5,
+                opacity: 0.95,
+                fillColor: '#EAF2F8',
+                fillOpacity: 0.15
+        }
+        }).addTo(map);
+
+        // Register state boundaries with layer control
+        layerControl.addOverlay(statesLayer, 'State Boundaries');
+
+        console.log('State boundaries loaded');
+
+    })
+    .catch(error => console.error(error));
+
+
+// Load U.S. railroad network
+fetch('./Data/USrailroads.geojson')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Could not load railroad lines');
+        }
+        return response.json();
+    })
+    .then(data => {
+
+        const railroadLayer = L.geoJSON(data, {
+            style: {
+                pane: 'railPane',
+                 color: '#0F766E',
+                weight: 1.1,
+                 opacity: 0.9
+            }
+        }).addTo(map);
+
+        // Register railroad network with layer control
+        layerControl.addOverlay(railroadLayer, 'Railroad Network');
+
+        console.log('Railroad lines loaded');
+
+    })
+    .catch(error => console.error(error));
+
+
+// Load the railroad accident GeoJSON file
+fetch('./Data/updated-accident-year.geojson')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Could not load the accident data');
+        }
+        return response.json();
+    })
+    .then(data => {
+
+        const yearFilter = document.getElementById('yearFilter');
+
+        // Read numerical values safely
+        function readCount(value) {
+            if (value === null || value === undefined ||
+                String(value).trim() === '') {
+                return null;
+            }
+
+            const number = Number(value);
+
+            return Number.isFinite(number) && number >= 0
+                ? number
+                : null;
+        }
+
+        // Get all available years from the dataset
+        const years = [...new Set(
+    data.features
+        .map(feature => String(
+            feature.properties?.YEAR4 ?? ''
+        ).trim())
+        .filter(year => /^\d{4}$/.test(year))
+        .map(Number)
+)].sort((a, b) => b - a);
+
+console.log('Available accident years:', years);
+console.log('Number of available years:', years.length);
+
+        // Populate the year selector
+        years.forEach(year => {
+            const option = document.createElement('option');
+            option.value = String(year);
+            option.textContent = String(year);
+            yearFilter.appendChild(option);
+        });
+
+        // Accident popup information
+        function accidentPopup(feature, layer) {
+
+            const p = feature.properties || {};
+
+            const popup = `
+                <strong>Crossing ID:</strong> ${p.GXID ?? 'N/A'}<br>
+                <strong>Year:</strong> ${p.YEAR4 ?? 'N/A'}<br>
+                <strong>State:</strong> ${p.STATE ?? 'N/A'}<br>
+                <strong>County:</strong> ${p.COUNTY ?? 'N/A'}<br>
+                <strong>City:</strong> ${p.CITY ?? 'N/A'}<br>
+                <strong>Fatalities:</strong> ${p.TOTKLD ?? 'N/A'}<br>
+                <strong>Injuries:</strong> ${p.TOTINJ ?? 'N/A'}<br>
+            `;
+
+            layer.bindTooltip(popup, {
+                sticky: true,
+                direction: 'top',
+                opacity: 0.95
+            });
+
+            layer.bindPopup(popup);
+        }
+
+
+// Get the clustering checkbox
+const clusterToggle = document.getElementById('clusterToggle');
+
+// Create three permanent accident category containers
+const fatalityLayer = L.layerGroup().addTo(map);
+const injuryLayer = L.layerGroup().addTo(map);
+const noCasualtyLayer = L.layerGroup().addTo(map);
+
+// Register categories with the existing layer control
+layerControl.addOverlay(
+    fatalityLayer, 'Accidents with Fatalities'
+);
+
+layerControl.addOverlay(
+    injuryLayer, 'Injury-only Accidents'
+);
+
+layerControl.addOverlay(
+    noCasualtyLayer, 'No Reported Casualties'
+);
+
+// Create accident displays based on the toggle setting
+function createAccidentDisplay(features, color) {
+
+    const featureCollection = {
+        type: 'FeatureCollection',
+        features: features
+    };
+
+    // CLUSTERED MODE
+    if (clusterToggle.checked) {
+
+        
+// Create individual markers for the cluster plugin
+const individualMarkers = L.geoJSON(featureCollection, {
+
+    pointToLayer: function(feature, latlng) {
+
+        // Create the individual accident marker
+        const marker = L.marker(latlng, {
+            pane: 'accidentsPane',
+            interactive: true,
+            riseOnHover: true,
+
+            icon: L.divIcon({
+                className: 'accident-div-icon',
+                html: `<div class="accident-dot"
+                            style="background-color:${color};">
+                       </div>`,
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
+            })
+        });
+
+        // Attach the accident information directly to the marker
+        accidentPopup(feature, marker);
+
+        return marker;
+    }
+
+});
+
+
+        // Create the cluster group
+        
+const clusters = L.markerClusterGroup({
+
+    // Improve loading performance
+    chunkedLoading: true,
+    chunkInterval: 200,
+    chunkDelay: 50,
+
+    // Cluster appearance and behavior
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true,
+    spiderfyOnMaxZoom: true,
+
+    // Remove markers outside the visible map
+    removeOutsideVisibleBounds: true,
+
+    // Adjust cluster radius as the user zooms
+    maxClusterRadius: function(zoom) {
+
+        if (zoom < 6) {
+            return 80;  // National view
+        }
+
+        if (zoom < 9) {
+            return 60;  // Regional view
+        }
+
+        if (zoom < 11) {
+            return 40;  // Metropolitan areas
+        }
+
+        return 25;      // City-level view
+    },
+    
+
+    // Show individual accidents at zoom 12 and closer
+    disableClusteringAtZoom: 10
+
+});
+
+// Show information when hovering over a cluster
+
+
+
+
+        // Add markers in batches
+        clusters.addLayers(individualMarkers.getLayers());
+
+        return clusters;
+    }
+
+    // INDIVIDUAL ACCIDENT MODE
+    return L.geoJSON(featureCollection, {
+
+        pointToLayer: function(feature, latlng) {
+
+            return L.circleMarker(latlng, {
+                pane: 'accidentsPane',
+                radius: 3.5,
+                color: '#FFFFFF',
+                fillColor: color,
+                fillOpacity: 0.85,
+                weight: 1
+            });
+
+        },
+
+        onEachFeature: accidentPopup
+
+    });
+}
+
+
+// Replace the contents of an accident category
+function renderAccidentLayer(targetLayer, features, color) {
+
+    targetLayer.clearLayers();
+
+    const displayLayer = createAccidentDisplay(
+        features, color
+    );
+
+    targetLayer.addLayer(displayLayer);
+}
+
+
+// Update map and statistics when the year changes
+function updateYearView() {
+
+    const selectedYear = yearFilter.value;
+
+    // Get selected state
+const selectedState = stateSelect.value;
+
+// Check whether state filtering is active
+const filterByState =
+    stateOnlyToggle.checked && selectedState !== '';
+
+// Filter accidents by year and state
+const selectedFeatures = data.features.filter(feature => {
+
+    const p = feature.properties || {};
+
+    const matchesYear =
+        selectedYear === 'all' ||
+        Number(p.YEAR4) === Number(selectedYear);
+
+    const matchesState =
+    !filterByState ||
+    Number(p.STATE) === Number(selectedState);
+
+    return matchesYear && matchesState;
+
+});
+// Check whether state codes are matching
+console.log('STATE FILTER DIAGNOSTIC:', {
+    selectedState: selectedState,
+    stateFilterOn: filterByState,
+
+    exampleAccidentState: data.features[0]?.properties?.STATE,
+
+    matchingStateRecords: data.features.filter(feature =>
+        String(feature.properties?.STATE ?? '')
+            .trim().toUpperCase() === selectedState
+    ).length,
+
+    recordsAfterFilters: selectedFeatures.length
+});
+
+    // Organize selected accidents
+    const groups = {
+        fatalities: [],
+        injuries: [],
+        noCasualties: []
+    };
+
+    let unclassified = 0;
+
+    let totalFatalities = 0;
+    let totalInjuries = 0;
+
+    for (const feature of selectedFeatures) {
+
+        const p = feature.properties || {};
+
+        const killed = readCount(p.TOTKLD);
+        const injured = readCount(p.TOTINJ);
+
+        totalFatalities += killed ?? 0;
+        totalInjuries += injured ?? 0;
+
+        if (killed !== null && killed > 0) {
+            groups.fatalities.push(feature);
+        }
+        else if (
+            killed === 0 &&
+            injured !== null &&
+            injured > 0
+        ) {
+            groups.injuries.push(feature);
+        }
+        else if (killed === 0 && injured === 0) {
+            groups.noCasualties.push(feature);
+        }
+        else {
+            unclassified++;
+        }
+    }
+
+    // Rebuild the three accident layers
+    renderAccidentLayer(
+        fatalityLayer, groups.fatalities, '#D7191C'
+    );
+
+    renderAccidentLayer(
+        injuryLayer, groups.injuries, '#F28E2B'
+    );
+
+    renderAccidentLayer(
+        noCasualtyLayer, groups.noCasualties, '#377EB8'
+    );
+
+    // Format statistics
+    const formatNumber = value =>
+        new Intl.NumberFormat('en-US').format(value);
+
+    // Update statistics cards
+    document.getElementById('totalAccidents').textContent =
+        formatNumber(selectedFeatures.length);
+
+    document.getElementById('fatalityAccidents').textContent =
+        formatNumber(groups.fatalities.length);
+
+    document.getElementById('totalFatalities').textContent =
+        formatNumber(totalFatalities);
+
+    document.getElementById('totalInjuries').textContent =
+        formatNumber(totalInjuries);
+
+    console.log('Year and clustering updated:', {
+        year: selectedYear,
+        clustering: clusterToggle.checked,
+        accidents: selectedFeatures.length,
+        fatalities: groups.fatalities.length,
+        injuries: groups.injuries.length,
+        noCasualties: groups.noCasualties.length,
+        unclassified: unclassified
+    });
+}
+
+
+// Year selector updates the map
+// Make the state controls able to refresh the accident map
+refreshAccidentView = updateYearView;
+yearFilter.addEventListener('change', updateYearView);
+
+// Clustering checkbox updates the map
+clusterToggle.addEventListener('change', updateYearView);
+
+// Initially display all years without clustering
+updateYearView();
+
+
+    })
+    .catch(error => {
+        console.error('Error loading GeoJSON:', error);
+    });
+
+
+    </script>
+
+</body>
+</html>
